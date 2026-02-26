@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sheridans Bills</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cream: #f5f0e8;
+            --warm-white: #faf8f4;
+            --ink: #1a1612;
+            --ink-light: #3d3530;
+            --ink-muted: #7a7068;
+            --gold: #c9a84c;
+            --gold-light: #e8d5a3;
+            --gold-pale: #f7f0de;
+            --martyn: #2d5a8e;
+            --martyn-light: #dde8f5;
+            --sian: #8e2d5a;
+            --sian-light: #f5dde8;
+            --red: #c0392b;
+            --green: #27705a;
+            --border: rgba(26,22,18,0.1);
+            --shadow: 0 2px 12px rgba(26,22,18,0.08);
+            --shadow-lg: 0 8px 40px rgba(26,22,18,0.12);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--cream);
+            color: var(--ink);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        h1, h2, h3 { font-family: 'DM Serif Display', serif; }
+        .mono { font-family: 'DM Mono', monospace; }
+
+        /* ── Header ── */
+        header {
+            background: var(--ink);
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+        }
+        .header-title { color: var(--cream); font-size: 1.5rem; letter-spacing: -0.02em; }
+        .header-title span { color: var(--gold); font-style: italic; }
+        .sync-badge {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 11px; font-family: 'DM Mono', monospace;
+            color: var(--gold-light); opacity: 0.8;
+        }
+        .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        /* ── Layout ── */
+        .main { max-width: 960px; margin: 0 auto; padding: 32px 20px 80px; display: grid; gap: 28px; }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--warm-white);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-title { font-size: 1.1rem; color: var(--ink); }
+        .card-body { padding: 20px 24px; }
+
+        /* ── Income Cards ── */
+        .income-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media(max-width:600px) { .income-grid { grid-template-columns: 1fr; } }
+
+        .person-card {
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid transparent;
+        }
+        .person-card.martyn { background: var(--martyn-light); border-color: rgba(45,90,142,0.2); }
+        .person-card.sian { background: var(--sian-light); border-color: rgba(142,45,90,0.2); }
+        .person-name { font-family: 'DM Serif Display', serif; font-size: 1.2rem; margin-bottom: 14px; }
+        .person-card.martyn .person-name { color: var(--martyn); }
+        .person-card.sian .person-name { color: var(--sian); }
+
+        .person-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+        .person-row .label { color: var(--ink-muted); }
+        .person-row .value { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--ink); }
+        .person-row.divider { border-top: 1px solid rgba(0,0,0,0.08); margin-top: 6px; padding-top: 10px; }
+        .person-row .value.big { font-size: 1.3rem; }
+        .value.positive { color: var(--green); }
+        .value.negative { color: var(--red); }
+
+        .edit-link { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--ink-muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+        .edit-link:hover { color: var(--ink); }
+
+        /* ── Split Slider ── */
+        .split-section { padding: 20px 24px; }
+        .split-labels { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .split-label { font-size: 13px; font-family: 'DM Mono', monospace; }
+        .split-label.martyn-label { color: var(--martyn); }
+        .split-label.sian-label { color: var(--sian); }
+        .slider-wrap { position: relative; }
+        input[type=range] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 6px;
+            background: linear-gradient(to right, var(--martyn) 0%, var(--martyn) var(--pct, 65%), var(--sian) var(--pct, 65%), var(--sian) 100%);
+            border-radius: 3px; outline: none; cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 22px; height: 22px;
+            background: var(--warm-white); border: 3px solid var(--ink);
+            border-radius: 50%; cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        .split-hint { text-align: center; font-size: 11px; color: var(--ink-muted); margin-top: 8px; font-family: 'DM Mono', monospace; }
+
+        /* ── Total Banner ── */
+        .total-banner {
+            background: var(--ink);
+            color: var(--cream);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 0 24px 20px;
+        }
+        .total-banner .label { font-size: 13px; color: var(--gold-light); }
+        .total-banner .amount { font-family: 'DM Mono', monospace; font-size: 1.8rem; color: var(--gold); letter-spacing: -0.02em; }
+
+        /* ── Account Balances ── */
+        .balances-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+        .balance-card {
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: box-shadow 0.15s, transform 0.15s;
+        }
+        .balance-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+        .balance-card .bal-label { font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+        .balance-card .bal-amount { font-family: 'DM Mono', monospace; font-size: 1.2rem; font-weight: 500; color: var(--ink); }
+
+        /* ── Bills Tabs ── */
+        .tabs { display: flex; overflow-x: auto; border-bottom: 1px solid var(--border); scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab {
+            padding: 14px 20px; font-size: 13px; font-weight: 500;
+            white-space: nowrap; cursor: pointer; border-bottom: 2px solid transparent;
+            color: var(--ink-muted); transition: all 0.2s;
+            background: none; border-top: none; border-left: none; border-right: none;
+        }
+        .tab:hover { color: var(--ink); }
+        .tab.active { color: var(--ink); border-bottom-color: var(--gold); }
+
+        /* ── Bill Items ── */
+        .bills-list { display: flex; flex-direction: column; gap: 2px; }
+        .bill-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; border-radius: 8px;
+            cursor: pointer; transition: background 0.15s;
+            gap: 12px;
+        }
+        .bill-row:hover { background: var(--cream); }
+        .bill-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .bill-cat { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 7px; border-radius: 4px; white-space: nowrap; font-family: 'DM Mono', monospace; }
+        .cat-housing   { background: #fde8d0; color: #a05c20; }
+        .cat-utilities { background: #d0e8fd; color: #205ca0; }
+        .cat-insurance { background: #e8d0fd; color: #5c20a0; }
+        .cat-pet       { background: #d0fde8; color: #207050; }
+        .cat-childcare { background: #fdd0e8; color: #a0205c; }
+        .cat-staff     { background: #fdf5d0; color: #7a6010; }
+        .cat-other     { background: #e8e8e8; color: #505050; }
+        .bill-name { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bill-due { font-size: 11px; color: var(--ink-muted); font-family: 'DM Mono', monospace; }
+        .bill-right { display: flex; align-items: center; gap: 16px; }
+        .bill-amount { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; color: var(--ink); }
+
+        .bills-footer { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-top: 1px solid var(--border); margin-top: 8px; }
+        .bills-footer .label { font-size: 13px; color: var(--ink-muted); }
+        .bills-footer .total { font-family: 'DM Mono', monospace; font-size: 1.1rem; font-weight: 500; }
+
+        .add-bill-row {
+            display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+            color: var(--ink-muted); font-size: 13px; cursor: pointer;
+            border-radius: 8px; transition: all 0.15s;
+        }
+        .add-bill-row:hover { background: var(--cream); color: var(--ink); }
+
+        /* ── Personal Payments ── */
+        .personal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media(max-width:600px) { .personal-grid { grid-template-columns: 1fr; } }
+        .personal-col h4 { font-family: 'DM Serif Display', serif; font-size: 1rem; margin-bottom: 12px; }
+        .personal-col.martyn-col h4 { color: var(--martyn); }
+        .personal-col.sian-col h4 { color: var(--sian); }
+
+        /* ── FAB ── */
+        .fab {
+            position: fixed; bottom: 24px; right: 24px;
+            width: 52px; height: 52px;
+            background: var(--ink); color: var(--gold);
+            border: none; border-radius: 50%; cursor: pointer;
+            font-size: 28px; line-height: 1;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transition: transform 0.15s, box-shadow 0.15s;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 200;
+        }
+        .fab:hover { transform: scale(1.08); box-shadow: 0 8px 30px rgba(0,0,0,0.35); }
+
+        /* ── Modal ── */
+        .overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(26,22,18,0.6); backdrop-filter: blur(4px);
+            z-index: 500; align-items: center; justify-content: center; padding: 20px;
+        }
+        .overlay.open { display: flex; }
+        .modal-box {
+            background: var(--warm-white);
+            border-radius: 20px;
+            padding: 28px;
+            width: 100%; max-width: 420px;
+            box-shadow: var(--shadow-lg);
+            animation: popIn 0.2s ease;
+        }
+        @keyframes popIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+        .modal-title { font-size: 1.3rem; margin-bottom: 20px; color: var(--ink); }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+        .form-input {
+            width: 100%; padding: 10px 14px;
+            background: var(--cream); border: 1px solid var(--border);
+            border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+            color: var(--ink); outline: none; transition: border-color 0.15s;
+        }
+        .form-input:focus { border-color: var(--gold); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+        .btn {
+            flex: 1; padding: 11px 16px; border-radius: 8px;
+            font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+            cursor: pointer; border: none; transition: all 0.15s;
+        }
+        .btn-primary { background: var(--ink); color: var(--gold); }
+        .btn-primary:hover { background: var(--ink-light); }
+        .btn-ghost { background: none; color: var(--ink-muted); border: 1px solid var(--border); }
+        .btn-ghost:hover { border-color: var(--ink-muted); color: var(--ink); }
+        .btn-danger { background: none; color: var(--red); border: 1px solid rgba(192,57,43,0.3); width: 100%; margin-top: 10px; padding: 10px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+        .btn-danger:hover { background: rgba(192,57,43,0.08); }
+        .hidden { display: none !important; }
+
+        .tax-info { background: var(--cream); border-radius: 8px; padding: 12px 14px; font-size: 12px; color: var(--ink-muted); margin-bottom: 16px; line-height: 1.6; }
+
+        /* Balance edit card highlight */
+        .balance-card.editing { box-shadow: 0 0 0 2px var(--gold); }
+
+        @media(max-width:640px) {
+            .main { padding: 20px 14px 80px; gap: 20px; }
+            .card-header, .card-body, .split-section { padding: 16px; }
+            .total-banner { margin: 0 16px 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1 class="header-title">Sheridans <span>Bills</span></h1>
+    <div class="sync-badge">
+        <div class="sync-dot"></div>
+        <span id="syncLabel">Synced</span>
+    </div>
+</header>
+
+<main class="main">
+
+    <!-- Income & Split -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Income & Split</h2>
+            <span class="edit-link" onclick="openIncomeModal('martyn')">Edit salaries</span>
+        </div>
+
+        <!-- Split Slider -->
+        <div class="split-section">
+            <div class="split-labels">
+                <span class="split-label martyn-label">Martyn <strong id="martynPct">65</strong>%</span>
+                <span class="split-label sian-label">Sian <strong id="sianPct">35</strong>%</span>
+            </div>
+            <input type="range" id="splitSlider" min="0" max="100" value="65" oninput="onSplitChange(this.value)">
+            <div class="split-hint">Drag to adjust bill split ratio</div>
+        </div>
+
+        <!-- Total -->
+        <div class="total-banner">
+            <div>
+                <div class="label">Total Monthly Bills</div>
+                <div style="font-size:11px;color:var(--gold-light);margin-top:2px;" id="totalBreakdown">Shared + Personal</div>
+            </div>
+            <div class="amount" id="totalBillsDisplay">£0</div>
+        </div>
+
+        <!-- Per-person cards -->
+        <div class="card-body" style="padding-top:0">
+            <div class="income-grid">
+                <div class="person-card martyn">
+                    <div class="person-name">Martyn <span class="edit-link" style="font-size:11px;" onclick="openIncomeModal('martyn')">edit</span></div>
+                    <div class="person-row"><span class="label">Gross salary</span><span class="value mono" id="martynGross">£159,000</span></div>
+                    <div class="person-row"><span class="label">Monthly take-home</span><span class="value mono positive" id="martynNet">–</span></div>
+                    <div class="person-row divider"><span class="label">Shared bills share</span><span class="value mono negative" id="martynShared">–</span></div>
+                    <div class="person-row"><span class="label">Personal payments</span><span class="value mono negative" id="martynPersonalTotal">–</span></div>
+                    <div class="person-row divider"><span class="label">Disposable</span><span class="value mono big" id="martynDisposable">–</span></div>
+                </div>
+                <div class="person-card sian">
+                    <div class="person-name">Sian <span class="edit-link" style="font-size:11px;" onclick="openIncomeModal('sian')">edit</span></div>
+                    <div class="person-row"><span class="label">Gross salary</span><span class="value mono" id="sianGross">£85,700</span></div>
+                    <div class="person-row"><span class="label">Monthly take-home</span><span class="value mono positive" id="sianNet">–</span></div>
+                    <div class="person-row divider"><span class="label">Shared bills share</span><span class="value mono negative" id="sianShared">–</span></div>
+                    <div class="person-row"><span class="label">Personal payments</span><span class="value mono negative" id="sianPersonalTotal">–</span></div>
+                    <div class="person-row divider"><span class="label">Disposable</span><span class="value mono big" id="sianDisposable">–</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Totals -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Spending by Category</h2>
+        </div>
+        <div class="card-body">
+            <div class="balances-grid" id="categoryGrid">
+                <!-- injected -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Shared Bills -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Shared Bills</h2>
+        </div>
+        <div class="tabs" id="billTabs"><!-- injected --></div>
+        <div style="padding:16px" id="billsContent"><!-- injected --></div>
+    </div>
+
+    <!-- Personal Payments -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Personal Payments</h2>
+            <span style="font-size:12px;color:var(--ink-muted);">Not split — individual</span>
+        </div>
+        <div class="card-body">
+            <div class="personal-grid">
+                <div class="personal-col martyn-col">
+                    <h4>Martyn</h4>
+                    <div id="martynPersonalList" class="bills-list"></div>
+                    <div class="add-bill-row" onclick="openBillModal(null,'personal','martyn')">
+                        <span style="font-size:18px;">+</span> Add payment
+                    </div>
+                </div>
+                <div class="personal-col sian-col">
+                    <h4>Sian</h4>
+                    <div id="sianPersonalList" class="bills-list"></div>
+                    <div class="add-bill-row" onclick="openBillModal(null,'personal','sian')">
+                        <span style="font-size:18px;">+</span> Add payment
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<!-- FAB -->
+<button class="fab" onclick="openBillModal(null, currentTab)" title="Add bill">+</button>
+
+<!-- Bill Modal -->
+<div class="overlay" id="billOverlay" onclick="closeOnBackdrop(event,'billOverlay')">
+    <div class="modal-box">
+        <h3 class="modal-title" id="billModalTitle">Add Bill</h3>
+        <input type="hidden" id="bId">
+        <input type="hidden" id="bSection">
+        <input type="hidden" id="bPerson">
+        <div class="form-group">
+            <label class="form-label">Name</label>
+            <input class="form-input" type="text" id="bName" placeholder="e.g. Netflix">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Amount £</label>
+                <input class="form-input" type="number" id="bAmount" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Due day</label>
+                <input class="form-input" type="number" id="bDue" min="1" max="31" placeholder="1–31">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-input" id="bCat">
+                <option value="housing">Home & Housing</option>
+                <option value="utilities">Utilities</option>
+                <option value="staff">Household Staff</option>
+                <option value="childcare">Childcare</option>
+                <option value="pet">Dog & Pets</option>
+                <option value="insurance">Insurance</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div id="bTabGroup" class="form-group">
+            <label class="form-label">Account / Group</label>
+            <select class="form-input" id="bTab"></select>
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-ghost" onclick="closeModal('billOverlay')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveBill()">Save</button>
+        </div>
+        <button class="btn-danger hidden" id="deleteBillBtn" onclick="deleteBill()">Delete this bill</button>
+    </div>
+</div>
+
+<!-- Income Modal -->
+<div class="overlay" id="incomeOverlay" onclick="closeOnBackdrop(event,'incomeOverlay')">
+    <div class="modal-box">
+        <h3 class="modal-title" id="incomeModalTitle">Edit Income</h3>
+        <input type="hidden" id="iPerson">
+        <div class="tax-info">
+            UK 2025/26 rates: Personal allowance £12,570 · Basic 20% · Higher 40% · Additional 45%<br>
+            NI: 8% (£12,570–£50,270) · 2% above
+        </div>
+        <div class="form-group">
+            <label class="form-label">Annual Gross Salary £</label>
+            <input class="form-input" type="number" id="iGross" step="500">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Pension Contribution %</label>
+            <input class="form-input" type="number" id="iPension" step="0.5" min="0" max="100">
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-ghost" onclick="closeModal('incomeOverlay')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveIncome()">Save</button>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let state = {
+    settings: {
+        split: { martyn: 65, sian: 35 },
+        income: {
+            martyn: { gross: 159000, pension: 5 },
+            sian:   { gross: 85700,  pension: 5 }
+        }
+    },
+    accounts: {
+        home:        { name: 'Home',         balance: 2278  },
+        dog:         { name: 'Dog',          balance: 387   },
+        contingency: { name: 'Contingency',  balance: 73    },
+        nursery:     { name: 'Nursery',      balance: 1608  },
+        mortgage:    { name: 'Mortgage',     balance: 0     }
+    },
+    bills: [
+        // Home & Housing
+        { id:'s1',  name:'Mortgage',        amount:1900.91, category:'housing',    tab:'mortgage',dueDate:1  },
+        { id:'s2',  name:'Council Tax',     amount:258.33,  category:'housing',    tab:'home',    dueDate:15 },
+        { id:'s9',  name:'House Insurance', amount:61,      category:'housing',    tab:'home',    dueDate:1  },
+        { id:'s10', name:'BG Services',     amount:48.72,   category:'housing',    tab:'home',    dueDate:5  },
+        // Utilities
+        { id:'s3',  name:'Gas & Electric',  amount:150,     category:'utilities',  tab:'home',    dueDate:5  },
+        { id:'s6',  name:'Water',           amount:49.33,   category:'utilities',  tab:'home',    dueDate:20 },
+        { id:'s4',  name:'Sky',             amount:72.50,   category:'utilities',  tab:'home',    dueDate:10 },
+        { id:'s5',  name:'Virgin',          amount:53.05,   category:'utilities',  tab:'home',    dueDate:10 },
+        { id:'s7',  name:'TV Licence',      amount:15,      category:'utilities',  tab:'home',    dueDate:1  },
+        // Household Staff
+        { id:'s11', name:'Renata (Cleaner)',     amount:192, category:'staff',     tab:'home',    dueDate:1  },
+        { id:'s12', name:'Stuart (Gardener)',    amount:90,  category:'staff',     tab:'home',    dueDate:1  },
+        { id:'s8',  name:'Inan (Window Cleaner)',amount:15,  category:'staff',     tab:'home',    dueDate:15 },
+        { id:'s15', name:'Mary (Dog Walker)',    amount:78,  category:'staff',     tab:'dog',     dueDate:1  },
+        // Childcare
+        { id:'s16', name:'Nursery',         amount:660.20,  category:'childcare',  tab:'nursery', dueDate:1  },
+        // Dog & Pets
+        { id:'s14', name:'Dog Insurance',   amount:40,      category:'pet',        tab:'dog',     dueDate:1  },
+        { id:'s17', name:'Winnie Insurance',amount:72,      category:'pet',        tab:'dog',     dueDate:1  },
+        { id:'s18', name:'Grooming',        amount:35,      category:'pet',        tab:'dog',     dueDate:15 },
+        { id:'s19', name:'Pet Care',        amount:35,      category:'pet',        tab:'dog',     dueDate:1  }
+    ],
+    personal: {
+        martyn: [],
+        sian: []
+    },
+    lastSaved: Date.now()
+};
+
+// ══════════════════════════════════════════════
+//  STORAGE
+// ══════════════════════════════════════════════
+const STORAGE_KEY = 'sheridans-bills-v2';
+
+async function loadState() {
+    try {
+        const result = await window.storage.get(STORAGE_KEY);
+        if (result && result.value) {
+            const saved = JSON.parse(result.value);
+            // Merge saved into defaults (so new fields appear if we add them)
+            state = Object.assign({}, state, saved);
+            if (!state.personal) state.personal = { martyn:[], sian:[] };
+        }
+    } catch(e) {
+        // First load or key doesn't exist — use defaults
+    }
+    render();
+}
+
+async function saveState() {
+    state.lastSaved = Date.now();
+    try {
+        await window.storage.set(STORAGE_KEY, JSON.stringify(state));
+        document.getElementById('syncLabel').textContent = 'Saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    } catch(e) {
+        document.getElementById('syncLabel').textContent = 'Save failed';
+    }
+}
+
+// ══════════════════════════════════════════════
+//  TAX CALC
+// ══════════════════════════════════════════════
+function calcTax(gross, pensionPct) {
+    const pension = gross * pensionPct / 100;
+    const afterPension = gross - pension;
+    const allowance = 12570;
+    // Personal allowance tapers above £100k
+    const adjAllowance = afterPension > 100000 ? Math.max(0, allowance - (afterPension - 100000)/2) : allowance;
+    const taxable = Math.max(0, afterPension - adjAllowance);
+
+    let tax = 0;
+    const b1 = 37700, b2 = 125140 - allowance;
+    if (taxable > 0) {
+        tax += Math.min(taxable, b1) * 0.20;
+        if (taxable > b1) tax += Math.min(taxable - b1, b2 - b1) * 0.40;
+        if (taxable > b2) tax += (taxable - b2) * 0.45;
+    }
+
+    let ni = 0;
+    const n1 = 12570, n2 = 50270;
+    if (gross > n1) {
+        ni += Math.min(gross - n1, n2 - n1) * 0.08;
+        if (gross > n2) ni += (gross - n2) * 0.02;
+    }
+
+    const net = gross - pension - tax - ni;
+    return { gross, pension, tax, ni, net, monthly: net / 12 };
+}
+
+// ══════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════
+function fmt(n) { return '£' + Math.round(Math.abs(n)).toLocaleString(); }
+function fmtDec(n) { return '£' + parseFloat(n).toFixed(2); }
+function ordinal(n) { const s=['th','st','nd','rd']; const v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function uid() { return 'b' + Date.now() + Math.random().toString(36).slice(2,6); }
+
+function sharedBills() { return state.bills; }
+function personalBills(person) { return state.personal[person] || []; }
+function sharedTotal() { return sharedBills().reduce((s,b)=>s+parseFloat(b.amount||0),0); }
+function personalTotal(person) { return personalBills(person).reduce((s,b)=>s+parseFloat(b.amount||0),0); }
+
+// ══════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════
+let currentTab = 'home';
+let balanceEditMode = false;
+
+function render() {
+    renderSplit();
+    renderCalculations();
+    renderCategoryTotals();
+    renderBillTabs();
+    renderBillsContent();
+    renderPersonal();
+}
+
+function renderSplit() {
+    const m = state.settings.split.martyn;
+    const s = 100 - m;
+    document.getElementById('martynPct').textContent = m;
+    document.getElementById('sianPct').textContent = s;
+    const slider = document.getElementById('splitSlider');
+    slider.value = m;
+    slider.style.setProperty('--pct', m + '%');
+}
+
+function renderCalculations() {
+    const { martyn, sian } = state.settings.income;
+    const mTax = calcTax(martyn.gross, martyn.pension);
+    const sTax = calcTax(sian.gross, sian.pension);
+
+    const shared = sharedTotal();
+    const mSplit = state.settings.split.martyn / 100;
+    const sSplit = 1 - mSplit;
+
+    const mShare = shared * mSplit;
+    const sShare = shared * sSplit;
+    const mPers  = personalTotal('martyn');
+    const sPers  = personalTotal('sian');
+
+    const mDisp = mTax.monthly - mShare - mPers;
+    const sDisp = sTax.monthly - sShare - sPers;
+
+    const totalAll = shared + mPers + sPers;
+
+    document.getElementById('totalBillsDisplay').textContent = fmt(totalAll);
+    document.getElementById('totalBreakdown').textContent = `Shared £${Math.round(shared).toLocaleString()} + personal`;
+
+    document.getElementById('martynGross').textContent = '£' + martyn.gross.toLocaleString();
+    document.getElementById('martynNet').textContent = fmt(mTax.monthly) + '/mo';
+    document.getElementById('martynShared').textContent = '−' + fmt(mShare);
+    document.getElementById('martynPersonalTotal').textContent = mPers > 0 ? '−' + fmt(mPers) : '£0';
+    const mD = document.getElementById('martynDisposable');
+    mD.textContent = fmt(mDisp);
+    mD.className = 'value mono big ' + (mDisp >= 0 ? 'positive' : 'negative');
+
+    document.getElementById('sianGross').textContent = '£' + sian.gross.toLocaleString();
+    document.getElementById('sianNet').textContent = fmt(sTax.monthly) + '/mo';
+    document.getElementById('sianShared').textContent = '−' + fmt(sShare);
+    document.getElementById('sianPersonalTotal').textContent = sPers > 0 ? '−' + fmt(sPers) : '£0';
+    const sD = document.getElementById('sianDisposable');
+    sD.textContent = fmt(sDisp);
+    sD.className = 'value mono big ' + (sDisp >= 0 ? 'positive' : 'negative');
+}
+
+function renderCategoryTotals() {
+    const grid = document.getElementById('categoryGrid');
+    grid.innerHTML = '';
+
+    const categories = [
+        { key: 'housing',   label: 'Home & Housing',   cls: 'cat-housing'   },
+        { key: 'utilities', label: 'Utilities',         cls: 'cat-utilities' },
+        { key: 'staff',     label: 'Household Staff',   cls: 'cat-staff'     },
+        { key: 'childcare', label: 'Childcare',         cls: 'cat-childcare' },
+        { key: 'pet',       label: 'Dog & Pets',        cls: 'cat-pet'       },
+        { key: 'insurance', label: 'Insurance',         cls: 'cat-insurance' },
+        { key: 'other',     label: 'Other',             cls: 'cat-other'     },
+    ];
+
+    categories.forEach(cat => {
+        const total = state.bills
+            .filter(b => b.category === cat.key)
+            .reduce((s, b) => s + parseFloat(b.amount || 0), 0);
+        if (total === 0) return; // hide empty categories
+
+        const card = document.createElement('div');
+        card.className = 'balance-card';
+        card.style.cursor = 'default';
+        card.innerHTML = `
+            <div style="margin-bottom:8px;">
+                <span class="bill-cat ${cat.cls}" style="font-size:9px;">${cat.label}</span>
+            </div>
+            <div class="bal-amount mono">£${total.toFixed(2)}</div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function renderBillTabs() {
+    const tabs = document.getElementById('billTabs');
+    tabs.innerHTML = '';
+
+    // All tab first
+    const allBtn = document.createElement('button');
+    allBtn.className = 'tab' + (currentTab === 'all' ? ' active' : '');
+    allBtn.textContent = 'All (' + state.bills.length + ')';
+    allBtn.onclick = () => { currentTab = 'all'; renderBillTabs(); renderBillsContent(); };
+    tabs.appendChild(allBtn);
+
+    // Account tabs
+    Object.keys(state.accounts).forEach(key => {
+        const count = state.bills.filter(b=>b.tab===key).length;
+        const btn = document.createElement('button');
+        btn.className = 'tab' + (key === currentTab ? ' active' : '');
+        btn.textContent = state.accounts[key].name + (count ? ` (${count})` : '');
+        btn.onclick = () => { currentTab = key; renderBillTabs(); renderBillsContent(); };
+        tabs.appendChild(btn);
+    });
+}
+
+function renderBillsContent() {
+    const container = document.getElementById('billsContent');
+
+    if (currentTab === 'all') {
+        renderAllBills(container);
+        return;
+    }
+
+    const bills = state.bills.filter(b => b.tab === currentTab);
+    const total = bills.reduce((s,b)=>s+parseFloat(b.amount||0),0);
+
+    let html = '<div class="bills-list">';
+    if (bills.length === 0) {
+        html += `<div style="color:var(--ink-muted);font-size:13px;padding:12px 16px;">No bills in this group yet.</div>`;
+    }
+    bills.forEach(b => {
+        html += billRowHTML(b);
+    });
+    html += '</div>';
+    html += `
+    <div class="add-bill-row" onclick="openBillModal(null,'shared')">
+        <span style="font-size:18px;">+</span> Add bill to ${state.accounts[currentTab]?.name || ''}
+    </div>
+    <div class="bills-footer">
+        <span class="label">Group total</span>
+        <span class="total mono">${fmtDec(total)}</span>
+    </div>`;
+
+    container.innerHTML = html;
+}
+
+function renderAllBills(container) {
+    const categories = [
+        { key: 'housing',   label: 'Home & Housing'  },
+        { key: 'utilities', label: 'Utilities'        },
+        { key: 'staff',     label: 'Household Staff'  },
+        { key: 'childcare', label: 'Childcare'        },
+        { key: 'pet',       label: 'Dog & Pets'       },
+        { key: 'insurance', label: 'Insurance'        },
+        { key: 'other',     label: 'Other'            },
+    ];
+
+    let html = '';
+    const grandTotal = state.bills.reduce((s,b)=>s+parseFloat(b.amount||0),0);
+
+    categories.forEach(cat => {
+        const bills = state.bills.filter(b => b.category === cat.key);
+        if (bills.length === 0) return;
+        const catTotal = bills.reduce((s,b)=>s+parseFloat(b.amount||0),0);
+
+        html += `
+        <div style="margin-bottom:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding:0 4px;">
+                <span class="bill-cat cat-${cat.key}" style="font-size:10px;">${cat.label}</span>
+                <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--ink-muted);">${fmtDec(catTotal)}</span>
+            </div>
+            <div class="bills-list">`;
+        bills.forEach(b => { html += billRowHTML(b); });
+        html += `</div></div>`;
+    });
+
+    html += `
+    <div class="bills-footer" style="margin-top:4px;">
+        <span class="label" style="font-weight:600;color:var(--ink);">Grand Total</span>
+        <span class="total mono" style="font-size:1.2rem;">${fmtDec(grandTotal)}</span>
+    </div>`;
+
+    container.innerHTML = html;
+}
+
+function billRowHTML(b) {
+    return `
+    <div class="bill-row" onclick="openBillModal('${b.id}','shared')">
+        <div class="bill-left">
+            <span class="bill-cat cat-${b.category}">${b.category}</span>
+            <div>
+                <div class="bill-name">${b.name}</div>
+                ${b.dueDate ? `<div class="bill-due">${ordinal(b.dueDate)} of month</div>` : ''}
+            </div>
+        </div>
+        <div class="bill-right">
+            <span class="bill-amount">${fmtDec(b.amount)}</span>
+        </div>
+    </div>`;
+}
+
+function renderPersonal() {
+    ['martyn','sian'].forEach(person => {
+        const list = document.getElementById(person + 'PersonalList');
+        const bills = personalBills(person);
+        list.innerHTML = '';
+        if (bills.length === 0) {
+            list.innerHTML = `<div style="color:var(--ink-muted);font-size:12px;padding:6px 0 10px;">None added yet</div>`;
+            return;
+        }
+        bills.forEach(b => {
+            const row = document.createElement('div');
+            row.className = 'bill-row';
+            row.style.padding = '8px 0';
+            row.onclick = () => openBillModal(b.id, 'personal', person);
+            row.innerHTML = `
+                <div class="bill-left">
+                    <span class="bill-cat cat-${b.category}">${b.category}</span>
+                    <span class="bill-name" style="font-size:13px;">${b.name}</span>
+                </div>
+                <span class="bill-amount" style="font-size:13px;">${fmtDec(b.amount)}</span>
+            `;
+            list.appendChild(row);
+        });
+    });
+}
+
+// ══════════════════════════════════════════════
+//  EVENTS
+// ══════════════════════════════════════════════
+function onSplitChange(val) {
+    const m = parseInt(val);
+    state.settings.split = { martyn: m, sian: 100 - m };
+    document.getElementById('splitSlider').style.setProperty('--pct', m + '%');
+    renderSplit();
+    renderCalculations();
+    saveState();
+}
+
+function toggleBalanceEdit() {
+    // Just open the first balance for editing — simpler UX
+}
+
+// ══════════════════════════════════════════════
+//  BILL MODAL
+// ══════════════════════════════════════════════
+function openBillModal(id, section, person) {
+    const isPersonal = section === 'personal';
+    document.getElementById('bSection').value = section || 'shared';
+    document.getElementById('bPerson').value = person || '';
+    document.getElementById('bTabGroup').classList.toggle('hidden', isPersonal);
+
+    // Populate tab select
+    const tabSel = document.getElementById('bTab');
+    tabSel.innerHTML = '';
+    Object.entries(state.accounts).forEach(([key, acc]) => {
+        const opt = document.createElement('option');
+        opt.value = key; opt.textContent = acc.name;
+        tabSel.appendChild(opt);
+    });
+
+    let bill = null;
+    if (id) {
+        if (isPersonal) {
+            bill = (state.personal[person] || []).find(b => b.id === id);
+        } else {
+            bill = state.bills.find(b => b.id === id);
+        }
+    }
+
+    if (bill) {
+        document.getElementById('billModalTitle').textContent = 'Edit Bill';
+        document.getElementById('bId').value = bill.id;
+        document.getElementById('bName').value = bill.name;
+        document.getElementById('bAmount').value = bill.amount;
+        document.getElementById('bDue').value = bill.dueDate || '';
+        document.getElementById('bCat').value = bill.category || 'other';
+        document.getElementById('bTab').value = bill.tab || currentTab;
+        document.getElementById('deleteBillBtn').classList.remove('hidden');
+    } else {
+        document.getElementById('billModalTitle').textContent = 'Add Bill';
+        document.getElementById('bId').value = '';
+        document.getElementById('bName').value = '';
+        document.getElementById('bAmount').value = '';
+        document.getElementById('bDue').value = '';
+        document.getElementById('bCat').value = 'other';
+        document.getElementById('bTab').value = currentTab;
+        document.getElementById('deleteBillBtn').classList.add('hidden');
+    }
+
+    document.getElementById('billOverlay').classList.add('open');
+}
+
+function saveBill() {
+    const name = document.getElementById('bName').value.trim();
+    const amount = parseFloat(document.getElementById('bAmount').value);
+    if (!name || isNaN(amount)) return alert('Please fill in name and amount.');
+
+    const id = document.getElementById('bId').value;
+    const section = document.getElementById('bSection').value;
+    const person = document.getElementById('bPerson').value;
+    const isPersonal = section === 'personal';
+
+    const bill = {
+        id: id || uid(),
+        name,
+        amount,
+        category: document.getElementById('bCat').value,
+        dueDate: parseInt(document.getElementById('bDue').value) || null,
+        tab: isPersonal ? 'personal' : document.getElementById('bTab').value
+    };
+
+    if (isPersonal) {
+        if (!state.personal[person]) state.personal[person] = [];
+        const idx = state.personal[person].findIndex(b=>b.id===id);
+        if (idx >= 0) state.personal[person][idx] = bill;
+        else state.personal[person].push(bill);
+    } else {
+        const idx = state.bills.findIndex(b=>b.id===id);
+        if (idx >= 0) state.bills[idx] = bill;
+        else state.bills.push(bill);
+        currentTab = bill.tab;
+    }
+
+    saveState();
+    closeModal('billOverlay');
+    render();
+}
+
+function deleteBill() {
+    if (!confirm('Delete this bill?')) return;
+    const id = document.getElementById('bId').value;
+    const section = document.getElementById('bSection').value;
+    const person = document.getElementById('bPerson').value;
+
+    if (section === 'personal') {
+        state.personal[person] = (state.personal[person]||[]).filter(b=>b.id!==id);
+    } else {
+        state.bills = state.bills.filter(b=>b.id!==id);
+    }
+
+    saveState();
+    closeModal('billOverlay');
+    render();
+}
+
+// ══════════════════════════════════════════════
+//  INCOME MODAL
+// ══════════════════════════════════════════════
+function openIncomeModal(person) {
+    document.getElementById('iPerson').value = person;
+    document.getElementById('incomeModalTitle').textContent = 'Edit ' + (person === 'martyn' ? 'Martyn' : 'Sian') + "'s Income";
+    document.getElementById('iGross').value = state.settings.income[person].gross;
+    document.getElementById('iPension').value = state.settings.income[person].pension;
+    document.getElementById('incomeOverlay').classList.add('open');
+}
+
+function saveIncome() {
+    const person = document.getElementById('iPerson').value;
+    const gross = parseFloat(document.getElementById('iGross').value);
+    const pension = parseFloat(document.getElementById('iPension').value);
+    if (isNaN(gross) || isNaN(pension)) return;
+    state.settings.income[person] = { gross, pension };
+    saveState();
+    closeModal('incomeOverlay');
+    render();
+}
+
+
+
+// ══════════════════════════════════════════════
+//  MODAL UTILS
+// ══════════════════════════════════════════════
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeOnBackdrop(e, id) { if (e.target.id === id) closeModal(id); }
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+loadState();
+</script>
+</body>
+</html>
