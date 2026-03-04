@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sheridans Bills</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -284,9 +287,12 @@
 
 <header>
     <h1 class="header-title">Sheridans <span>Bills</span></h1>
-    <div class="sync-badge">
-        <div class="sync-dot"></div>
-        <span id="syncLabel">Synced</span>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <button onclick="downloadPDF()" style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);color:var(--gold);font-family:'DM Mono',monospace;font-size:11px;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='rgba(201,168,76,0.25)'" onmouseout="this.style.background='rgba(201,168,76,0.15)'">⬇ PDF</button>
+        <div class="sync-badge">
+            <div class="sync-dot" id="syncDot"></div>
+            <span id="syncLabel">Connecting…</span>
+        </div>
     </div>
 </header>
 
@@ -516,32 +522,77 @@ let state = {
 };
 
 // ══════════════════════════════════════════════
-//  STORAGE
+//  SUPABASE
 // ══════════════════════════════════════════════
-const STORAGE_KEY = 'sheridans-bills-v2';
+const SUPABASE_URL  = 'https://kmccjzlnyqecvpmtgoui.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttY2NqemxueXFlY3ZwbXRnb3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4NzQxNTUsImV4cCI6MjA4NzQ1MDE1NX0.-nEwmskCB9Z1GifiQgedBGUgiScsd-v_yg1VsqGe11Y';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+function setSyncStatus(status, msg) {
+    const dot  = document.getElementById('syncDot');
+    const label = document.getElementById('syncLabel');
+    label.textContent = msg;
+    dot.style.background = status === 'ok' ? '#c9a84c' : status === 'err' ? '#c0392b' : '#7a7068';
+}
 
 async function loadState() {
+    setSyncStatus('wait', 'Loading…');
     try {
-        const result = await window.storage.get(STORAGE_KEY);
-        if (result && result.value) {
-            const saved = JSON.parse(result.value);
-            // Merge saved into defaults (so new fields appear if we add them)
+        const { data, error } = await sb
+            .from('sheridan_bills')
+            .select('data')
+            .eq('id', 'household')
+            .single();
+
+        if (error) throw error;
+
+        if (data && data.data && Object.keys(data.data).length > 0) {
+            const saved = data.data;
             state = Object.assign({}, state, saved);
             if (!state.personal) state.personal = { martyn:[], sian:[] };
+        } else {
+            // First run — push defaults up
+            await pushState();
         }
+        setSyncStatus('ok', 'Synced');
     } catch(e) {
-        // First load or key doesn't exist — use defaults
+        setSyncStatus('err', 'Offline');
+        console.error('Supabase load error:', e);
     }
+
     render();
+
+    // Realtime subscription — any change from Sian's device updates yours instantly
+    sb.channel('bills-sync')
+        .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'sheridan_bills', filter: 'id=eq.household' },
+            payload => {
+                const incoming = payload.new.data;
+                if (incoming && JSON.stringify(incoming) !== JSON.stringify(state)) {
+                    state = Object.assign({}, state, incoming);
+                    if (!state.personal) state.personal = { martyn:[], sian:[] };
+                    render();
+                    setSyncStatus('ok', 'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
+                }
+            })
+        .subscribe();
+}
+
+async function pushState() {
+    const { error } = await sb
+        .from('sheridan_bills')
+        .upsert({ id: 'household', data: state, updated_at: new Date().toISOString() });
+    if (error) throw error;
 }
 
 async function saveState() {
-    state.lastSaved = Date.now();
+    setSyncStatus('wait', 'Saving…');
     try {
-        await window.storage.set(STORAGE_KEY, JSON.stringify(state));
-        document.getElementById('syncLabel').textContent = 'Saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        await pushState();
+        setSyncStatus('ok', 'Saved ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
     } catch(e) {
-        document.getElementById('syncLabel').textContent = 'Save failed';
+        setSyncStatus('err', 'Save failed');
+        console.error('Supabase save error:', e);
     }
 }
 
@@ -967,6 +1018,154 @@ function saveIncome() {
 // ══════════════════════════════════════════════
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function closeOnBackdrop(e, id) { if (e.target.id === id) closeModal(id); }
+
+// ══════════════════════════════════════════════
+//  PDF EXPORT
+// ══════════════════════════════════════════════
+function downloadPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const ink    = [26, 22, 18];
+    const gold   = [201, 168, 76];
+    const muted  = [122, 112, 104];
+    const mBlue  = [45, 90, 142];
+    const sPink  = [142, 45, 90];
+    const pageW  = 210;
+    const margin = 16;
+    let y = 0;
+
+    // ── Header band
+    doc.setFillColor(...ink);
+    doc.rect(0, 0, pageW, 28, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(...gold);
+    doc.text('Sheridans Bills', margin, 14);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(220, 210, 190);
+    const now = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+    doc.text(`Generated ${now}`, margin, 21);
+    y = 36;
+
+    // ── Income summary
+    const { martyn, sian } = state.settings.income;
+    const mTax   = calcTax(martyn.gross, martyn.pension);
+    const sTax   = calcTax(sian.gross, sian.pension);
+    const shared = sharedTotal();
+    const mSplit = state.settings.split.martyn / 100;
+    const mShare = shared * mSplit;
+    const sShare = shared * (1 - mSplit);
+    const mPers  = personalTotal('martyn');
+    const sPers  = personalTotal('sian');
+    const mDisp  = mTax.monthly - mShare - mPers;
+    const sDisp  = sTax.monthly - sShare - sPers;
+    const grandTotal = shared + mPers + sPers;
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...ink);
+    doc.text('Income & Split', margin, y); y += 6;
+
+    doc.autoTable({
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [['', 'Martyn', 'Sian']],
+        body: [
+            ['Gross Salary',      `£${martyn.gross.toLocaleString()}`,   `£${sian.gross.toLocaleString()}`],
+            ['Monthly Take-home', `£${Math.round(mTax.monthly).toLocaleString()}`, `£${Math.round(sTax.monthly).toLocaleString()}`],
+            ['Bill Split',        `${state.settings.split.martyn}%`,     `${state.settings.split.sian}%`],
+            ['Shared Bills Share',`£${Math.round(mShare).toLocaleString()}`, `£${Math.round(sShare).toLocaleString()}`],
+            ['Personal Payments', `£${Math.round(mPers).toLocaleString()}`,  `£${Math.round(sPers).toLocaleString()}`],
+            ['Disposable Income', `£${Math.round(mDisp).toLocaleString()}`,  `£${Math.round(sDisp).toLocaleString()}`],
+        ],
+        headStyles: { fillColor: ink, textColor: gold, fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 9, textColor: ink },
+        columnStyles: { 1: { textColor: mBlue, fontStyle:'bold' }, 2: { textColor: sPink, fontStyle:'bold' } },
+        alternateRowStyles: { fillColor: [248, 244, 238] },
+        styles: { cellPadding: 3 },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ── Category totals
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...ink);
+    doc.text('Spending by Category', margin, y); y += 6;
+
+    const categories = [
+        { key:'housing',   label:'Home & Housing'  },
+        { key:'utilities', label:'Utilities'        },
+        { key:'staff',     label:'Household Staff'  },
+        { key:'childcare', label:'Childcare'        },
+        { key:'pet',       label:'Dog & Pets'       },
+        { key:'insurance', label:'Insurance'        },
+        { key:'other',     label:'Other'            },
+    ];
+    const catRows = categories.map(c => {
+        const t = state.bills.filter(b=>b.category===c.key).reduce((s,b)=>s+parseFloat(b.amount||0),0);
+        return t > 0 ? [c.label, `£${t.toFixed(2)}`] : null;
+    }).filter(Boolean);
+    catRows.push(['Total Shared Bills', `£${shared.toFixed(2)}`]);
+
+    doc.autoTable({
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [['Category', 'Monthly Total']],
+        body: catRows,
+        headStyles: { fillColor: ink, textColor: gold, fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 9, textColor: ink },
+        alternateRowStyles: { fillColor: [248, 244, 238] },
+        styles: { cellPadding: 3 },
+        didParseCell: (data) => {
+            if (data.row.index === catRows.length - 1) {
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.fillColor = [240, 230, 210];
+            }
+        }
+    });
+    y = doc.lastAutoTable.finalY + 10;
+
+    // ── Full bill list grouped by category
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...ink);
+    doc.text('Full Bill List', margin, y); y += 6;
+
+    const allRows = [];
+    categories.forEach(cat => {
+        const bills = state.bills.filter(b => b.category === cat.key);
+        if (!bills.length) return;
+        allRows.push([{ content: cat.label, colSpan: 3, styles: { fillColor: [230, 220, 200], fontStyle:'bold', fontSize:8, textColor: ink } }]);
+        bills.forEach(b => {
+            allRows.push([b.name, b.dueDate ? ordinal(b.dueDate) : '—', `£${parseFloat(b.amount).toFixed(2)}`]);
+        });
+    });
+    allRows.push([{ content: `Grand Total`, colSpan: 2, styles: { fontStyle:'bold', fillColor:[240,230,210] } }, { content: `£${grandTotal.toFixed(2)}`, styles: { fontStyle:'bold', fillColor:[240,230,210] } }]);
+
+    doc.autoTable({
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [['Bill', 'Due', 'Amount']],
+        body: allRows,
+        headStyles: { fillColor: ink, textColor: gold, fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 9, textColor: ink },
+        columnStyles: { 2: { halign: 'right' } },
+        styles: { cellPadding: 3 },
+    });
+
+    // ── Footer on each page
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(...muted);
+        doc.text(`Sheridans Bills · Page ${i} of ${pageCount}`, margin, 292);
+    }
+
+    doc.save(`sheridans-bills-${new Date().toISOString().slice(0,10)}.pdf`);
+}
 
 // ══════════════════════════════════════════════
 //  INIT
